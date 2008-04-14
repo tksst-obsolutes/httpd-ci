@@ -1,0 +1,197 @@
+#test config derived from httpd-2.0/docs/conf/ssl-std.conf -*- text -*-
+
+<IfModule @ssl_module@>
+    #base config that can be used by any SSL enabled VirtualHosts
+    AddType application/x-x509-ca-cert .crt
+    AddType application/x-pkcs7-crl    .crl
+
+    SSLSessionCache        none
+    #XXX: would be nice to test these
+    #SSLSessionCache        shm:@ServerRoot@/logs/ssl_scache(512000)
+    #SSLSessionCache        dbm:@ServerRoot@/logs/ssl_scache
+    #SSLSessionCacheTimeout  300
+
+    #SSLMutex  file:@ServerRoot@/logs/ssl_mutex
+
+    SSLRandomSeed startup builtin
+    SSLRandomSeed connect builtin
+    #SSLRandomSeed startup file:/dev/random  512
+    #SSLRandomSeed startup file:/dev/urandom 512
+    #SSLRandomSeed connect file:/dev/random  512
+    #SSLRandomSeed connect file:/dev/urandom 512
+
+    <IfModule mod_log_config.c>
+        LogFormat "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %>s %b" ssl
+        CustomLog logs/ssl_request_log ssl
+    </IfModule>
+
+    SSLCipherSuite ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP:+eNULL
+
+    <IfDefine TEST_SSL_PASSPHRASE_EXEC>
+        SSLPassPhraseDialog  exec:@ServerRoot@/conf/ssl/httpd-passphrase.pl
+    </IfDefine>
+    #else the default is builtin
+    <IfDefine !TEST_SSL_PASSPHRASE_EXEC>
+        SSLPassPhraseDialog  builtin
+    </IfDefine>
+
+    <IfDefine TEST_SSL_DES3_KEY>
+        SSLCertificateFile @SSLCA@/asf/certs/server_des3.crt
+
+        SSLCertificateKeyFile @SSLCA@/asf/keys/server_des3.pem
+
+#        SSLCertificateFile @SSLCA@/asf/certs/server_des3_dsa.crt
+
+#        SSLCertificateKeyFile @SSLCA@/asf/keys/server_des3_dsa.pem
+    </IfDefine>
+    #else the default is an unencrypted key
+    <IfDefine !TEST_SSL_DES3_KEY>
+        SSLCertificateFile @SSLCA@/asf/certs/server.crt
+
+        SSLCertificateKeyFile @SSLCA@/asf/keys/server.pem
+
+#        SSLCertificateFile @SSLCA@/asf/certs/server_dsa.crt
+
+#        SSLCertificateKeyFile @SSLCA@/asf/keys/server_dsa.pem
+    </IfDefine>
+
+    #SSLCertificateChainFile @SSLCA@/asf/certs/cachain.crt
+
+    SSLCACertificateFile @SSLCA@/asf/certs/ca.crt
+
+    SSLCACertificatePath @ServerRoot@/conf/ssl
+
+    SSLCARevocationFile @SSLCA@/asf/crl/ca-bundle.crl
+
+    <VirtualHost @ssl_module_name@>
+        SSLEngine on
+
+        #t/ssl/verify.t
+        Alias /verify @DocumentRoot@
+
+        <Location /verify>
+            SSLVerifyClient require
+            SSLVerifyDepth  10
+        </Location>
+
+        #t/ssl/require.t
+        Alias /require/asf        @DocumentRoot@
+        Alias /require/snakeoil   @DocumentRoot@
+        Alias /ssl-fakebasicauth  @DocumentRoot@
+        Alias /ssl-fakebasicauth2 @DocumentRoot@
+        Alias /ssl-cgi            @DocumentRoot@/modules/cgi
+        Alias /require-ssl-cgi    @DocumentRoot@/modules/cgi
+
+        Alias /require-md5-cgi    @DocumentRoot@/modules/cgi
+        Alias /require-sha-cgi    @DocumentRoot@/modules/cgi
+
+        <Location /require/asf>
+            SSLVerifyClient require
+            SSLVerifyDepth  10
+            SSLRequire (%{SSL_CIPHER} !~ m/^(EXP|NULL)-/ \
+                        and %{SSL_CLIENT_S_DN_O} eq "ASF" \
+                        and %{SSL_CLIENT_S_DN_OU} in \
+                             {"httpd-test", "httpd", "modperl"} )
+        </Location>
+
+        <Location /require/snakeoil>
+            SSLVerifyClient require
+            SSLVerifyDepth  10
+            SSLRequire (%{SSL_CIPHER} !~ m/^(EXP|NULL)-/ \
+                        and %{SSL_CLIENT_S_DN_O} eq "Snake Oil, Ltd." \
+                        and %{SSL_CLIENT_S_DN_OU} in \
+                             {"Staff", "CA", "Dev"} )
+        </Location>
+
+        <Location /ssl-cgi>
+            SSLOptions +StdEnvVars
+        </Location>
+
+        <Location /require-ssl-cgi>
+            SSLOptions +StdEnvVars
+            SSLVerifyClient require
+            SSLVerifyDepth  10
+        </Location>
+
+        <Location /require-sha-cgi>
+            SSLCipherSuite RC4-SHA
+        </Location>
+
+        <Location /require-md5-cgi>
+            SSLCipherSuite RC4-MD5
+        </Location>
+
+        <IfModule @AUTH_MODULE@>
+            <Location /ssl-fakebasicauth>
+                SSLVerifyClient      require
+                SSLVerifyDepth       5
+                SSLOptions           +FakeBasicAuth
+                AuthName             "Snake Oil Authentication"
+                AuthType             Basic
+                AuthUserFile         @SSLCA@/asf/ssl.htpasswd
+                require              valid-user
+            </Location>
+        </IfModule>
+
+        # specific to 2.1
+        <IfModule mod_authn_anon.c>
+            <IfModule mod_auth_basic.c>
+                <Location /ssl-fakebasicauth2>
+                    SSLVerifyClient      require
+                    SSLOptions           +FakeBasicAuth +StdEnvVars
+                    AuthName             "Snake Oil Authentication"
+                    AuthType             Basic
+                    AuthBasicProvider    anon
+                    Anonymous            dummy "*"
+                    require              valid-user
+                </Location>
+            </IfModule>
+        </IfModule>
+
+    </VirtualHost>
+
+    # An SSL vhost which does optional ccert checks at vhost level, to
+    # check for CVE CAN-2005-2700.
+      
+    <VirtualHost ssl_optional_cc>
+        SSLEngine on
+        
+        SSLVerifyClient optional
+
+        Alias /require/any        @DocumentRoot@
+        Alias /require/none       @DocumentRoot@
+
+        <Location /require/any>
+            SSLVerifyClient require
+            SSLVerifyDepth  10
+        </Location>
+    </VirtualHost>
+
+    # An SSL vhost which can be used to trigger PR 33791
+
+    <VirtualHost ssl_pr33791>
+       SSLEngine On
+
+       ErrorDocument 400 /index.html
+
+       <Location />
+           SSLVerifyClient require
+       </Location>
+    </VirtualHost>
+
+    # For t/ssl/pr43738.t:
+    <IfModule mod_actions.c>
+        Action application/x-pf-action /modules/cgi/action.pl
+        
+        AddType application/x-pf-action .pfa
+    </IfModule>
+
+    <Location /modules/ssl/sha/>
+         SSLCipherSuite RC4-SHA
+    </Location>
+
+    <Location /modules/ssl/md5/>
+         SSLCipherSuite RC4-MD5
+    </Location>
+
+</IfModule>
