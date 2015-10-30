@@ -1,0 +1,483 @@
+<?xml version="1.0"?>
+<!DOCTYPE modulesynopsis SYSTEM "../style/modulesynopsis.dtd">
+<?xml-stylesheet type="text/xsl" href="../style/manual.en.xsl"?>
+<!-- $LastChangedRevision$ -->
+
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one or more
+ contributor license agreements.  See the NOTICE file distributed with
+ this work for additional information regarding copyright ownership.
+ The ASF licenses this file to You under the Apache License, Version 2.0
+ (the "License"); you may not use this file except in compliance with
+ the License.  You may obtain a copy of the License at
+ 
+ http://www.apache.org/licenses/LICENSE-2.0
+ 
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ -->
+
+<modulesynopsis metafile="mod_http2.xml.meta">
+    
+    <name>mod_http2</name>
+    <description>Support for the HTTP/2 transport layer</description>
+    <status>Extension</status>
+    <sourcefile>mod_http2.c</sourcefile>
+    <identifier>http2_module</identifier>
+    <compatibility>Available in version 2.4.17 and later</compatibility>
+    
+    <summary>
+        <p>This module provides HTTP/2 (RFC 7540) support for the Apache
+            HTTP Server.</p>
+        
+        <p>This module relies on <a href="http://nghttp2.org/">libnghttp2</a>
+            to provide the core http/2 engine.</p>
+        
+        <note type="warning"><title>Warning</title>
+          <p>This module is experimental. Its behaviors, directives, and 
+          defaults are subject to more change from release to 
+          release relative to other standard modules. Users are encouraged to 
+          consult the "CHANGES" file for potential updates.</p>
+        </note>
+
+        <p>You must enable HTTP/2 via <directive
+        module="core">Protocols</directive> in order to use the
+        functionality described in this document:</p>
+
+        <highlight language="config">
+            Protocols h2 http/1.1
+        </highlight>
+
+    </summary>
+    
+    <directivesynopsis>
+        <name>H2Direct</name>
+        <description>H2 Direct Protocol Switch</description>
+        <syntax>H2Direct on|off</syntax>
+        <default>H2Direct on for http:, off for https: requests</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        
+        <usage>
+            <p>
+                This directive toggles the usage of the HTTP/2 Direct Mode. This
+                should be used inside a 
+                <directive module="core" type="section">VirtualHost</directive> 
+                section to enable direct HTTP/2 communication for that virtual host. 
+            </p>
+            <p>
+                Direct communication means that if the first bytes received by the 
+                server on a connection match the HTTP/2 preamble, the HTTP/2
+                protocol is switched to immediately without further negotiation.
+                This mode is defined in RFC 7540 for the cleartext (h2c) case. Its
+                use on TLS connections not mandated by the standard.
+            </p>
+            <p>
+                This mode only has an effect when h2 or h2c is enabled via
+                the <directive module="core" type="section">Protocols</directive>.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2Direct on
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2Upgrade</name>
+        <description>H2 Upgrade Protocol Switch</description>
+        <syntax>H2Upgrade on|off</syntax>
+        <default>H2Upgrade on for http:, off for https: requests</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        
+        <usage>
+            <p>
+                This directive toggles the usage of the HTTP/1.1 Upgrade method 
+                for switching to HTTP/2. This
+                should be used inside a 
+                <directive module="core" type="section">VirtualHost</directive> 
+                section to enable Upgrades to HTTP/2 for that virtual host. 
+            </p>
+            <p>
+                This method of switching protocols is defined in HTTP/1.1 and
+                uses the "Upgrade" header (thus the name) to announce willingness
+                to use another protocol. This may happen on any request of a
+                HTTP/1.1 connection.
+            </p>
+            <p>
+                This method of protocol switching is enabled by default on cleartext
+                (http:) connections and disabled on TLS (https:), as mandated
+                by RFC 7540. 
+            </p>
+            <p>
+                This mode only has an effect when h2 or h2c is enabled via
+                the <directive module="core" type="section">Protocols</directive>.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2Upgrade on
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+    
+    <directivesynopsis>
+        <name>H2MaxSessionStreams</name>
+        <description>Maximum number of active streams per HTTP/2 session.</description>
+        <syntax>H2MaxSessionStreams <em>n</em></syntax>
+        <default>H2MaxSessionStreams 100</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        <usage>
+            <p>
+                This directive sets the maximum number of active streams per HTTP/2 session (e.g. connection)
+                that the server allows. A stream is active if it is not <code>idle</code> or 
+                <code>closed</code> according to RFC 7540.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2MaxSessionStreams 20
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+    
+    <directivesynopsis>
+        <name>H2StreamMaxMemSize</name>
+        <description>Maximum amount of output data buffered per stream.</description>
+        <syntax>H2StreamMaxMemSize <em>bytes</em></syntax>
+        <default>H2StreamMaxMemSize 65536</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        <usage>
+            <p>
+                This directive sets the maximum number of outgoing data bytes buffered in memory
+                for an active streams. This memory is not allocated per stream as such. Allocations
+                are counted against this limit when they are about to be done. Stream processing
+                freezes when the limit has been reached and will only continue when buffered data
+                has been sent out to the client.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2StreamMaxMemSize 128000
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2WindowSize</name>
+        <description>Size of Stream Window for upstream data.</description>
+        <syntax>H2WindowSize <em>bytes</em></syntax>
+        <default>H2WindowSize 65536</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        <usage>
+            <p>
+                This directive sets the size of the window that is used for flow control
+                from client to server and limits the amount of data the server has to buffer.
+                The client will stop sending on a stream once the limit has been reached until
+                the server announces more available space (as it has processed some of the data).
+            </p><p>
+                This limit affects only request bodies, not its meta data such as headers. Also,
+                it has no effect on response bodies as the window size for those are managed
+                by the clients.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2WindowSize 128000
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2MinWorkers</name>
+        <description>Minimal number of worker threads to use per child process.</description>
+        <syntax>H2MinWorkers <em>n</em></syntax>
+        <contextlist>
+            <context>server config</context>
+        </contextlist>
+        <usage>
+            <p>
+                This directive sets the minimum number of worker threads to spawn
+                per child process for HTTP/2 processing. If this directive is not used,
+                <code>mod_http2</code> will chose a value suitable for the <code>mpm</code>
+                module loaded.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2MinWorkers 10
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2MaxWorkers</name>
+        <description>Maximum number of worker threads to use per child process.</description>
+        <syntax>H2MaxWorkers <em>n</em></syntax>
+        <contextlist>
+            <context>server config</context>
+        </contextlist>
+        <usage>
+            <p>
+                This directive sets the maximum number of worker threads to spawn
+                per child process for HTTP/2 processing. If this directive is not used,
+                <code>mod_http2</code> will chose a value suitable for the <code>mpm</code>
+                module loaded.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2MaxWorkers 20
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2MaxWorkerIdleSeconds</name>
+        <description>Maximum number of seconds h2 workers remain idle until shut down.</description>
+        <syntax>H2MaxWorkerIdleSeconds <em>n</em></syntax>
+        <default>H2MaxWorkerIdleSeconds 600</default>
+        <contextlist>
+            <context>server config</context>
+        </contextlist>
+        <usage>
+            <p>
+                This directive sets the maximum number of seconds a h2 worker may 
+                idle until it shuts itself down. This only happens while the number of
+                h2 workers exceeds <code>H2MinWorkers</code>.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2MaxWorkerIdleSeconds 20
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2SessionExtraFiles</name>
+        <description>Number of Extra File Handles</description>
+        <syntax>H2SessionExtraFiles <em>n</em></syntax>
+        <default>H2SessionExtraFiles 5</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        <usage>
+            <p>
+                This directive sets maximum number of <em>extra</em> file handles
+                a HTTP/2 session is allowed to use. A file handle is counted as
+                <em>extra</em> when it is transfered from a h2 worker thread to
+                the main HTTP/2 connection handling. This commonly happens when
+                serving static files.
+            </p><p>
+                Depending on the processing model configured on the server, the
+                number of connections times number of active streams may exceed
+                the number of file handles for the process. On the other hand,
+                converting every file into memory bytes early results in too 
+                many buffer writes. This option helps to mitigate that.
+            </p><p>
+                The number of file handles used by a server process is then in
+                the order of:
+            </p>
+            <pre>
+                (h2_connections * extra_files) + (h2_max_worker)
+            </pre>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2SessionExtraFiles 10
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2SerializeHeaders</name>
+        <description>Serialize Request/Response Processing Switch</description>
+        <syntax>H2SerializeHeaders on|off</syntax>
+        <default>H2SerializeHeaders off</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        <usage>
+            <p>
+                This directive toggles if HTTP/2 requests shall be serialized in
+                HTTP/1.1 format for processing by <code>httpd</code> core or if
+                received binary data shall be passed into the <code>request_rec</code>s
+                directly.
+            </p>
+            <p>
+                Serialization will lower performance, but gives more backward
+                compatibility in case custom filters/hooks need it.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2SerializeHeaders on
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2ModernTLSOnly</name>
+        <description>Require HTTP/2 connections to be "modern TLS" only</description>
+        <syntax>H2ModernTLSOnly on|off</syntax>
+        <default>H2ModernTLSOnly on</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        
+        <usage>
+            <p>
+                This directive toggles the security checks on HTTP/2 connections
+                in TLS mode (https:). This can be used server wide or for specific
+                <directive module="core" type="section">VirtualHost</directive>s. 
+            </p>
+            <p>
+                The security checks require that the TSL protocol is at least
+                TLSv1.2 and that none of the ciphers listed in RFC 7540, Appendix A
+                is used. These checks will be extended once new security requirements
+                come into place.
+            </p>
+            <p>
+                The name stems from the 
+                <a href="https://wiki.mozilla.org/Security/Server_Side_TLS">Security/Server Side TLS</a>
+                definitions at mozilla where "modern compatiblity" is defined. Mozilla Firefox and
+                other browsers require modern compatiblity for HTTP/2 connections. As everything
+                in OpSec, this is a moving target and can be expected to evolve in the future.
+            </p>
+            <p>
+                One purpose of having these checks in mod_http2 is to enforce this
+                security level for all connections, not only those from browsers. The other
+                purpose is to prevent the negotiation of HTTP/2 as a protocol should
+                the requirements not be met.
+            </p>
+            <p>
+                Ultimately, the security of the TLS connection is determined by the
+                server configuration directives for mod_ssl.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2ModernTLSOnly off
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+
+    <directivesynopsis>
+        <name>H2TLSWarmUpSize</name>
+        <description></description>
+        <syntax>H2TLSWarmUpSize amount</syntax>
+        <default>H2TLSWarmUpSize 1048576</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        
+        <usage>
+            <p>
+                This directive sets the number of bytes to be sent in small
+                TLS records (~1300 bytes) until doing maximum sized writes (16k)
+                on https: HTTP/2 connections.
+                This can be used server wide or for specific
+                <directive module="core" type="section">VirtualHost</directive>s. 
+            </p>
+            <p>
+                Measurements by <a href="https://www.igvita.com">google performance
+                labs</a> show that best performance on TLS connections is reached,
+                if initial record sizes stay below the MTU level, to allow a
+                complete record to fit into an IP packet.
+            </p>
+            <p>
+                While TCP adjust its flow-control and window sizes, longer TLS
+                records can get stuck in queues or get lost and need retransmission.
+                This is of course true for all packets. TLS however needs the 
+                whole record in order to decrypt it. Any missing bytes at the end
+                will stall usage of the received ones.
+            </p>
+            <p>
+                After a sufficient number of bytes have been send successfully,
+                the TCP state of the connection is stable and maximum TLS record
+                sizes (16 KB) can be used for optimal performance.
+            </p>
+            <p>
+                In deployments where servers are reached locally or over reliable
+                connections only, the value might be decreased with 0 disabling
+                any warmup phase alltogether.
+            </p>
+            <p>
+                The following example sets the size to zero, effectively disabling
+                any warmup phase.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2TLSWarmUpSize 0
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+    
+    <directivesynopsis>
+        <name>H2TLSCoolDownSecs</name>
+        <description></description>
+        <syntax>H2TLSCoolDownSecs seconds</syntax>
+        <default>H2TLSCoolDownSecs 1</default>
+        <contextlist>
+            <context>server config</context>
+            <context>virtual host</context>
+        </contextlist>
+        
+        <usage>
+            <p>
+                This directive sets the number of seconds of idle time on a TLS
+                connection before the TLS write size falls back to small (~1300 bytes)
+                length.
+                This can be used server wide or for specific
+                <directive module="core" type="section">VirtualHost</directive>s. 
+            </p>
+            <p>
+                See <directive type="section">H2TLSWarmUpSize</directive> for a
+                description of TLS warmup. H2TLSCoolDownSecs reflects the fact
+                that connections may detoriate over time (and TCP flow adjusts)
+                for idle connections as well. It is beneficial to overall performance
+                to fall back to the pre-warmup phase after a number of seconds that
+                no data has been sent. 
+            </p>
+            <p>
+                In deployments where connections can be considered reliable, this
+                timer can be disabled by setting it to 0. 
+            </p>
+            <p>
+                The following example sets the seconds to zero, effectively disabling
+                any cooldown. Warmed up TLS connections stay on maximum record
+                size.
+            </p>
+            <example><title>Example</title>
+                <highlight language="config">
+                    H2TLSCoolDownSecs 0
+                </highlight>
+            </example>
+        </usage>
+    </directivesynopsis>
+    
+</modulesynopsis>
