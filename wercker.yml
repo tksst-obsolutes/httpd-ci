@@ -4,4 +4,4 @@ build:
     - script:
         name: build
         code: |
-          su testuser sh -c "build/build.sh && build/test.sh"
+          chown -R testuser . && su testuser sh -c "build/build.sh && build/test.sh"
