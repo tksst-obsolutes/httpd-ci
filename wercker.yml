@@ -1,7 +1,7 @@
-box: tksst/httpd-build-test-centos6
+box: tksst/httpd-build-test-centos6:wercker-docker-test
 build:
   steps:
     - script:
         name: build
         code: |
-          build/build.sh
+          su testuser sh -c "build/build.sh && build/test.sh"
