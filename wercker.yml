@@ -1,4 +1,4 @@
-box: tksst/httpd-build-test-centos6:wercker-docker-test
+box: tksst/httpd-build-test-centos6
 build:
   steps:
     - script:

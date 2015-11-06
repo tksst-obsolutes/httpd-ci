@@ -1,6 +1,6 @@
 #!/bin/sh
 
-installroot=${PWD}/prefix
+installroot=${PWD}/installroot
 
 (
 	cd ${installroot}/conf &&
